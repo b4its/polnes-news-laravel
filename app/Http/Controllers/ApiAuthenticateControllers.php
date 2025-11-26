@@ -9,27 +9,52 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 
 class ApiAuthenticateControllers extends Controller
 {
-    //
-    public function register_views(Request $request)
+    /**
+     * Helper untuk validasi API Key dan Logging
+     */
+    private function validateAndLogApiKey(Request $request)
+    {
+        // Kunci dari file config/app.php
+        $privateKey = config('app.private_api_key');
+        
+        // Ambil header X-Api-Key
+        $headerKey = $request->header('X-Api-Key'); 
+        
+        // Logging untuk debugging (Hapus di Production)
+        Log::info('--- API KEY CHECK ---');
+        Log::info('Configured (Laravel .env -> config): ' . $privateKey);
+        Log::info('Received (HTTP Header): ' . $headerKey);
+        Log::info('--- END CHECK ---');
+
+        // Pengecekan aman terhadap string kosong atau mismatch
+        if (empty($headerKey) || $headerKey !== $privateKey) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized access: invalid API key'
+            ], 401);
+        }
+        
+        return null; // Lanjut jika valid
+    }
+
+    /**
+     * Handle a user registration request.
+     */
+    public function register(Request $request)
     {
         try {
-            // 1. Cek private key
-            $privateKey = config('app.private_api_key');
-            $headerKey = $request->header('x-api-key');
+            // Hapus blok API Key ini jika Anda tidak memerlukannya untuk endpoint register.
+            // if ($response = $this->validateAndLogApiKey($request)) {
+            //     return $response;
+            // }
 
-            if (!$headerKey || $headerKey !== $privateKey) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Unauthorized access: invalid API key'
-                ], 401);
-            }
-
-            // 2. Validasi input
+            // 1. Validasi input
             $validator = Validator::make($request->all(), [
-                'username' => 'required|string|max:255',
+                'name'     => 'required|string|max:255',
                 'email'    => 'required|email|unique:users',
                 'password' => 'required|string|min:6'
             ]);
@@ -42,32 +67,40 @@ class ApiAuthenticateControllers extends Controller
                 ], 422);
             }
 
-            // 3. Buat user baru
+            // 2. Buat user baru 
             $user = User::create([
-                'username' => $request->username,
+                'name'     => $request->name,
                 'email'    => $request->email,
-                'password' => Hash::make($request->password)
+                'password' => Hash::make($request->password),
+                'role'     => 'USER',
             ]);
 
-            // 4. Kembalikan respon sukses
+            // 3. Kembalikan respon sukses (tanpa password hash)
             return response()->json([
                 'status'  => 'success',
                 'message' => 'User created successfully',
-                'user'    => $user
+                'user'    => [ // Menggunakan kunci 'user' sesuai respons ideal
+                    'id'    => $user->id,
+                    'name'  => $user->name,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                    'created_at' => $user->created_at,
+                    'updated_at' => $user->updated_at,
+                ]
             ], 201);
 
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Kesalahan query database (misalnya duplikat email, kolom null, dsb)
+        } catch (QueryException $e) { 
+            Log::error('Database Error in ' . __METHOD__ . ': ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Database error: ' . $e->getMessage()
+                'message' => 'Database error: Could not create user.'
             ], 500);
 
         } catch (Exception $e) {
-            // Kesalahan umum lainnya (server, logic, dsb)
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Internal server error: ' . $e->getMessage()
+                'message' => 'Internal server error.'
             ], 500);
         }
     }
@@ -75,23 +108,18 @@ class ApiAuthenticateControllers extends Controller
     /**
      * Handle a user login request.
      */
-    public function login_views(Request $request)
+    public function login(Request $request)
     {
         try {
-            // 1. Cek private key, sama seperti di register
-            $privateKey = config('app.private_api_key');
-            $headerKey = $request->header('x-api-key');
+            // Hapus blok API Key ini jika Anda tidak memerlukannya untuk endpoint login.
+            // if ($response = $this->validateAndLogApiKey($request)) {
+            //     return $response;
+            // }
 
-            if (!$headerKey || $headerKey !== $privateKey) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Unauthorized access: invalid API key'
-                ], 401); // 401 Unauthorized
-            }
-
-            // 2. Validasi input
+            // 1. Validasi input
+            // Klien mengirim 'admin@address.com' di kolom 'name', ini yang divalidasi
             $validator = Validator::make($request->all(), [
-                'username' => 'required|string',
+                'name' => 'required|string', 
                 'password' => 'required|string',
             ]);
 
@@ -100,34 +128,123 @@ class ApiAuthenticateControllers extends Controller
                     'status' => 'error',
                     'message' => 'Validation failed',
                     'errors' => $validator->errors()
-                ], 422); // 422 Unprocessable Entity
+                ], 422);
             }
 
-            // 3. Cari user berdasarkan username
-            $user = User::where('username', $request->username)->first();
-            // 4. Verifikasi user dan password
-            // Jika user tidak ditemukan ATAU password tidak cocok
+            // 2. PERBAIKAN UTAMA: Cari user berdasarkan EMAIL
+            // Karena klien mengirim alamat email di field 'name', kita cari di kolom 'email'.
+            $user = User::where('email', $request->name)->first();
+            
+            // 3. Verifikasi user dan password
             if (!$user || !Hash::check($request->password, $user->password)) {
                 return response()->json([
                     'status'  => 'error',
-                    'message' => 'Username atau password salah.'
-                ], 401); // 401 Unauthorized
+                    'message' => 'name atau password salah.'
+                ], 401);
             }
             
-            // Jika berhasil, kirim data user
-            // Respon ini cocok dengan yang diharapkan oleh Flutter
+            // 4. Jika berhasil, kirim data user
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Login successful',
-                'data'    => $user // Menggunakan 'data' agar konsisten dengan ekspektasi Flutter
-            ], 200); // 200 OK
+                'data'    => [ // Menggunakan kunci 'data' sesuai respons Login ideal
+                    'id'    => $user->id,
+                    'name'  => $user->name,
+                    'email' => $user->email,
+                    'role'  => $user->role,
+                    'created_at' => $user->created_at,
+                    'updated_at' => $user->updated_at,
+                ]
+            ], 200);
 
         } catch (Exception $e) {
-            // Menangkap kesalahan tak terduga
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Internal server error: ' . $e->getMessage()
-            ], 500); // 500 Internal Server Error
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+    
+    /**
+     * Method untuk mengambil semua user (Memerlukan API Key)
+     */
+    public function showAll(Request $request)
+    {
+        try {
+            // 1. Cek private key (Diwajibkan)
+            if ($response = $this->validateAndLogApiKey($request)) { 
+                return $response;
+            }
+
+            // 2. Ambil semua data pengguna dari database (hanya kolom yang aman)
+            $users = User::select('id', 'name', 'email', 'role', 'created_at', 'updated_at')->get();
+
+            // 3. Kembalikan respon sukses
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched all users',
+                'count' => $users->count(),
+                'data' => $users
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Internal Server Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateRoleToEditor(Request $request, $id)
+    {
+        try {
+            // 1. Cek private key (Diwajibkan)
+            // Asumsikan method ini ada dalam class Controller yang sama
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Cari pengguna berdasarkan ID
+            $user = User::find($id);
+
+            // 3. Cek apakah pengguna ditemukan
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'User not found'
+                ], 404);
+            }
+
+            // 4. Perbarui role pengguna
+            $user->role = 'EDITOR';
+            $user->save();
+
+            // 5. Kembalikan respon sukses
+            return response()->json([
+                'status' => 'success',
+                'message' => "Successfully updated user ID {$id} role to EDITOR",
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'updated_at' => $user->updated_at
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            // Log error
+            Log::error('Internal Server Error in ' . __METHOD__ . ': ' . $e->getMessage());
+
+            // Kembalikan respon error
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error',
+                'details' => $e->getMessage()
+            ], 500);
         }
     }
 }

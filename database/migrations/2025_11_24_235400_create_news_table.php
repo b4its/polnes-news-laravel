@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('title')->nullable();
             $table->foreignId('categoryId')->nullable()->constrained('category')->onDelete('cascade');
             $table->text('gambar')->nullable();
-            $table->text('content')->nullable();
+            $table->text('contents')->nullable();
             $table->foreignId('authorId')->nullable()->constrained('users')->onDelete('cascade');
             $table->integer('views')->nullable();
             $table->string('linkYoutube')->nullable();
@@ -46,8 +46,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('news');
         Schema::dropIfExists('comment');
         Schema::dropIfExists('notification');
+        Schema::dropIfExists('news');
     }
 };

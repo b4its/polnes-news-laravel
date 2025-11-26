@@ -8,13 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class News extends Model
 {
-    //
     use HasFactory;
 
     protected $table = 'news';
 
     /**
-     * Atribut yang dapat diisi secara massal.
+     * Atribut yang dapat diisi secara massal (mass assignable).
+     * Pastikan semua kolom di migration ada di sini.
      *
      * @var array<int, string>
      */
@@ -22,22 +22,28 @@ class News extends Model
         'title',
         'categoryId',
         'gambar',
-        'content',
+        'contents',
         'authorId',
         'views',
         'linkYoutube',
         'status',
     ];
 
-    public function categoryList(): BelongsTo
+    /**
+     * Relasi: Berita milik satu Kategori.
+     */
+    public function category(): BelongsTo
     {
+        // Asumsi Model Category sudah ada
         return $this->belongsTo(Category::class, 'categoryId');
     }
 
-    public function user(): BelongsTo
+    /**
+     * Relasi: Berita ditulis oleh satu User (Author).
+     */
+    public function author(): BelongsTo
     {
-        // Kita perlu mendefinisikan foreign key secara eksplisit
-        // karena nama kolom 'idUsers' tidak mengikuti konvensi Laravel ('user_id').
+        // Asumsi Model User sudah ada
         return $this->belongsTo(User::class, 'authorId');
     }
 }
