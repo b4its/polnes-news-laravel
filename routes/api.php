@@ -48,9 +48,9 @@ Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     Route::get('/{id}', 'show');     // GET /api/news/{id}
     
     // Write Operations: Memerlukan API Key
-    Route::post('/news/', 'store');       // POST /api/news (Tambah Berita)
-    Route::post('/news/{id}', 'update');  // POST /api/news/{id} (Update Berita, menggunakan POST untuk file upload)
-    Route::delete('/news/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
+    Route::post('/post', 'store');       // POST /api/news (Tambah Berita)
+    Route::post('/post/{id}', 'update');  // POST /api/{id} (Update Berita, menggunakan POST untuk file upload)
+    Route::delete('/delete/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
 });
 
 
