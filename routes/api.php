@@ -3,7 +3,9 @@
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\ApiAuthenticateControllers;
 use App\Http\Controllers\ApiCategoryController;
+use App\Http\Controllers\ApiCommentController;
 use App\Http\Controllers\ApiNewsController;
+use App\Http\Controllers\ApiNotificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,15 +44,52 @@ Route::controller(ApiCategoryController::class)->group(function () {
 
 // Route untuk CRUD Berita
 Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
-    
     // Read: Akses publik (tidak perlu API Key)
     Route::get('/', 'index');        // GET /api/news
+    Route::get('/get/most_view/short', 'mostViewed_short');        // GET /api/news
+    Route::get('/get/most_view/long', 'mostViewed_long');        // GET /api/news
+    Route::get('/get/most_rated/short', 'mostRated_short');        // GET /api/news
+    Route::get('/get/most_rated/long', 'mostRated_long');        // GET /api/news
     Route::get('/{id}', 'show');     // GET /api/news/{id}
     
     // Write Operations: Memerlukan API Key
     Route::post('/post', 'store');       // POST /api/news (Tambah Berita)
     Route::post('/post/{id}', 'update');  // POST /api/{id} (Update Berita, menggunakan POST untuk file upload)
     Route::delete('/delete/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
+});
+
+Route::prefix('comment')->controller(ApiCommentController::class)->group(function () {
+    /**
+     * POST /api/comment/{newsId}/store
+     * Menambahkan rating/komentar baru ke suatu berita.
+     * Membutuhkan: X-Api-Key, userId, rating (di body request).
+     */
+    Route::post('/store/{newsId}', 'storeComment');
+    
+    /**
+     * GET /api/comment/{newsId}
+     * Menampilkan semua rating/komentar untuk suatu berita.
+     * Membutuhkan: X-Api-Key.
+     */
+    Route::get('get/{newsId}', 'getComments');
+});
+
+Route::prefix('notification')->controller(ApiNotificationController::class)->group(function () {
+    
+    /**
+     * GET /api/notification/
+     * Menampilkan semua notifikasi, diurutkan berdasarkan created_at terbaru.
+     * Membutuhkan: X-Api-Key.
+     */
+    Route::get('/get', 'getNotifications');
+    Route::get('/get/general', 'getGeneralNotifications');
+    Route::get('/news/get', 'getNewsRelatedNotifications');
+    /**
+     * POST /api/notification/store
+     * Menyimpan notifikasi baru ke database.
+     * Membutuhkan: X-Api-Key, title (body), newsId (body, opsional).
+     */
+    Route::post('/store', 'storeNotification');
 });
 
 

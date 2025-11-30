@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\File; 
 
@@ -53,7 +54,7 @@ class ApiNewsController extends Controller
             // 2. Ambil data berita
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('created_at', 'desc')
-                        ->paginate(10); 
+                        ->get(); 
 
             return response()->json([
                 'status' => 'success',
@@ -63,6 +64,148 @@ class ApiNewsController extends Controller
 
         } catch (Exception $e) {
             Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+    
+    public function mostViewed_short(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->orderBy('views', 'desc')
+                        ->take(5) 
+                        ->get(); 
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+    
+    public function mostViewed_long(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->orderBy('views', 'desc') 
+                        ->get(); 
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+    
+    
+    public function mostRated_long(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Hitung Rata-rata Rating dan Urutkan
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        // Subquery untuk menghitung rata-rata rating dari tabel 'comment'
+                        ->leftJoin(
+                            DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
+                            'news.id', '=', 'ratings.newsId'
+                        )
+                        // Mengurutkan berdasarkan rata-rata rating tertinggi (DESC)
+                        // Berita tanpa rating akan memiliki nilai NULL, yang biasanya akan ditaruh di akhir
+                        ->orderByDesc('ratings.average_rating')
+                        // Tambahan: Urutan sekunder berdasarkan tanggal terbaru
+                        ->orderBy('news.created_at', 'desc')
+                        // Pilih kembali semua kolom 'news' dan tambahkan 'average_rating'
+                        ->select('news.*', 'ratings.average_rating')
+                        ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched most rated news list',
+                'data' => $news
+            ], 200);
+
+        } catch (Exception $e) {
+            // Log Error
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+    
+    
+    public function mostRated_short(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Hitung Rata-rata Rating dan Urutkan
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        // Subquery untuk menghitung rata-rata rating dari tabel 'comment'
+                        ->leftJoin(
+                            DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
+                            'news.id', '=', 'ratings.newsId'
+                        )
+                        // Mengurutkan berdasarkan rata-rata rating tertinggi (DESC)
+                        // Berita tanpa rating akan memiliki nilai NULL, yang biasanya akan ditaruh di akhir
+                        ->orderByDesc('ratings.average_rating')
+                        // Tambahan: Urutan sekunder berdasarkan tanggal terbaru
+                        ->orderBy('news.created_at', 'desc')
+                        // Pilih kembali semua kolom 'news' dan tambahkan 'average_rating'
+                        ->select('news.*', 'ratings.average_rating')
+                        ->take(5)
+                        ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched most rated news list',
+                'data' => $news
+            ], 200);
+
+        } catch (Exception $e) {
+            // Log Error
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            
             return response()->json([
                 'status' => 'error',
                 'message' => 'Internal server error.'

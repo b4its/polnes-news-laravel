@@ -29,7 +29,7 @@ class NewsForm
                 ->searchable(),
 
 
-                RichEditor::make('deskripsi')
+                RichEditor::make('contents')
                     ->label('Deskripsi')
                     ->required()
                     ->columnSpanFull(), 
