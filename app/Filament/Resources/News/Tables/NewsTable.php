@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\News\Tables;
 
 use App\Models\Category;
+use App\Models\News;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -16,8 +17,8 @@ class NewsTable
     {
         return $table
             ->query(
-                Category::query()
-                    ->selectRaw('category.*, ROW_NUMBER() OVER (ORDER BY created_at desc) as row_num')
+                News::query()
+                    ->selectRaw('news.*, ROW_NUMBER() OVER (ORDER BY created_at desc) as row_num')
                     ->orderBy('created_at', 'desc') // urutkan tampilannya dari terbaru
             )
             ->columns([
@@ -27,8 +28,13 @@ class NewsTable
                     ->sortable(),
 
                     
-                TextColumn::make('name')
+                TextColumn::make('title')
                     ->label('Judul')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('category.name')
+                    ->label('Category') // Label yang akan ditampilkan di header tabel
                     ->searchable()
                     ->sortable(),
             ])

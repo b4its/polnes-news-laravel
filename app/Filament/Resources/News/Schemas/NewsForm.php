@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\News\Schemas;
 
+use App\Models\Category;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -14,9 +17,22 @@ class NewsForm
         return $schema
             ->components([
                 //
-                TextInput::make('name')
+                TextInput::make('title')
                     ->label('Judul')
                     ->required(),
+
+                Select::make('categoryId')
+                ->label('Category')
+                ->options(
+                    Category::all()->pluck('name', 'id') // Mengambil semua data dan memformatnya menjadi [id => name]
+                )
+                ->searchable(),
+
+
+                RichEditor::make('deskripsi')
+                    ->label('Deskripsi')
+                    ->required()
+                    ->columnSpanFull(), 
 
                 FileUpload::make('gambar')
                     ->disk('public_folder')

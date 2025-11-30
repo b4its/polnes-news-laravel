@@ -23,7 +23,7 @@ class StatsOverview extends StatsOverviewWidget
                 ->icon('heroicon-o-users')
                 ->color('primary'),
 
-            Stat::make('Total Divisi', News::count())
+            Stat::make('Total Berita', News::count())
                 ->description('Jumlah Seluruh Berita')
                 ->icon('heroicon-o-rectangle-stack')
                 ->color('success'),
