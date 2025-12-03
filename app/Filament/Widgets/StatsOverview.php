@@ -18,7 +18,7 @@ class StatsOverview extends StatsOverviewWidget
     protected function getStats(): array
     {
         return [
-            Stat::make('Total Anggota', Category::count())
+            Stat::make('Total Kategori', Category::count())
                 ->description('Jumlah seluruh Kategori')
                 ->icon('heroicon-o-users')
                 ->color('primary'),

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\News\Pages;
 use App\Filament\Resources\News\NewsResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Auth;
 
 class ListNews extends ListRecords
 {
@@ -13,7 +14,12 @@ class ListNews extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            CreateAction::make()
+                ->mutateFormDataUsing(function (array $data): array {
+                    $data['views'] = 1 ;
+                    $data['authorId'] = Auth::id();
+                    return $data;
+                }),
         ];
     }
 }

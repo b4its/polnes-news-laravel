@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\File; 
+use Illuminate\Support\Facades\File;
 
 class ApiNewsController extends Controller
 {
@@ -40,7 +40,7 @@ class ApiNewsController extends Controller
     // ------------------------------------------------------------------
 
     /**
-     * Menampilkan semua daftar berita.
+     * Menampilkan semua daftar berita (dengan Paginasi).
      * Memerlukan API Key.
      */
     public function index(Request $request)
@@ -51,15 +51,16 @@ class ApiNewsController extends Controller
                 return $response;
             }
 
-            // 2. Ambil data berita
+            // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('created_at', 'desc')
-                        ->get(); 
+                        // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(10); 
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Successfully fetched news list',
-                'data' => $news
+                'data' => $news // $news sekarang adalah objek PaginatedData
             ], 200);
 
         } catch (Exception $e) {
@@ -71,6 +72,10 @@ class ApiNewsController extends Controller
         }
     }
     
+    /**
+     * Menampilkan berita paling banyak dilihat (pendek/short).
+     * TIDAK menggunakan paginasi (mengembalikan Array langsung).
+     */
     public function mostViewed_short(Request $request)
     {
         try {
@@ -85,6 +90,7 @@ class ApiNewsController extends Controller
                         ->take(5) 
                         ->get(); 
 
+            // 💡 CATATAN: Response ini akan mengembalikan "data": [Array]
             return response()->json([
                 'status' => 'success',
                 'message' => 'Successfully fetched news list',
@@ -100,6 +106,10 @@ class ApiNewsController extends Controller
         }
     }
     
+    /**
+     * Menampilkan berita paling banyak dilihat (panjang/long) dengan Paginasi.
+     * Memerlukan API Key.
+     */
     public function mostViewed_long(Request $request)
     {
         try {
@@ -108,10 +118,11 @@ class ApiNewsController extends Controller
                 return $response;
             }
 
-            // 2. Ambil data berita
+            // 2. Ambil data berita dengan PAGINASI
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('views', 'desc') 
-                        ->get(); 
+                        // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(10); 
 
             return response()->json([
                 'status' => 'success',
@@ -129,6 +140,10 @@ class ApiNewsController extends Controller
     }
     
     
+    /**
+     * Menampilkan berita paling banyak di-rating (panjang/long) dengan Paginasi.
+     * Memerlukan API Key.
+     */
     public function mostRated_long(Request $request)
     {
         try {
@@ -139,19 +154,15 @@ class ApiNewsController extends Controller
 
             // 2. Hitung Rata-rata Rating dan Urutkan
             $news = News::with(['author:id,name', 'category:id,name'])
-                        // Subquery untuk menghitung rata-rata rating dari tabel 'comment'
                         ->leftJoin(
                             DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
                             'news.id', '=', 'ratings.newsId'
                         )
-                        // Mengurutkan berdasarkan rata-rata rating tertinggi (DESC)
-                        // Berita tanpa rating akan memiliki nilai NULL, yang biasanya akan ditaruh di akhir
                         ->orderByDesc('ratings.average_rating')
-                        // Tambahan: Urutan sekunder berdasarkan tanggal terbaru
                         ->orderBy('news.created_at', 'desc')
-                        // Pilih kembali semua kolom 'news' dan tambahkan 'average_rating'
                         ->select('news.*', 'ratings.average_rating')
-                        ->get();
+                        // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(10);
 
             return response()->json([
                 'status' => 'success',
@@ -181,21 +192,17 @@ class ApiNewsController extends Controller
 
             // 2. Hitung Rata-rata Rating dan Urutkan
             $news = News::with(['author:id,name', 'category:id,name'])
-                        // Subquery untuk menghitung rata-rata rating dari tabel 'comment'
                         ->leftJoin(
                             DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
                             'news.id', '=', 'ratings.newsId'
                         )
-                        // Mengurutkan berdasarkan rata-rata rating tertinggi (DESC)
-                        // Berita tanpa rating akan memiliki nilai NULL, yang biasanya akan ditaruh di akhir
                         ->orderByDesc('ratings.average_rating')
-                        // Tambahan: Urutan sekunder berdasarkan tanggal terbaru
                         ->orderBy('news.created_at', 'desc')
-                        // Pilih kembali semua kolom 'news' dan tambahkan 'average_rating'
                         ->select('news.*', 'ratings.average_rating')
                         ->take(5)
                         ->get();
 
+            // 💡 CATATAN: Response ini akan mengembalikan "data": [Array]
             return response()->json([
                 'status' => 'success',
                 'message' => 'Successfully fetched most rated news list',
@@ -238,7 +245,7 @@ class ApiNewsController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Successfully fetched news detail',
-                'data' => $news
+                'data' => $news // Mengembalikan satu objek
             ], 200);
 
         } catch (Exception $e) {
@@ -265,14 +272,15 @@ class ApiNewsController extends Controller
             }
 
             // 2. Validasi input
+            // 💡 PERBAIKAN: Kunci 'content' dan 'contents'
             $validator = Validator::make($request->all(), [
-                'title'      => 'required|string|max:255',
-                'categoryId' => 'nullable|integer|exists:category,id',
-                'gambar'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
-                'content'    => 'required|string', // Kunci 'content'
+                'title'       => 'required|string|max:255',
+                'categoryId'  => 'nullable|integer|exists:category,id',
+                'gambar'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
+                'contents'    => 'required|string', // ✅ Menggunakan contents
                 'linkYoutube' => 'nullable|string',
-                'authorId'   => 'required|integer|exists:users,id',
-                'status'     => 'nullable|string|in:draft,published' 
+                'authorId'    => 'required|integer|exists:users,id',
+                'status'      => 'nullable|string|in:draft,published' 
             ]);
 
             if ($validator->fails()) {
@@ -282,7 +290,8 @@ class ApiNewsController extends Controller
             $imagePath = null;
             if ($request->hasFile('gambar')) {
                 $image = $request->file('gambar');
-                $imageName = time() . '-' . Str::slug($request->title) . '.' . $image->getClientOriginalExtension();
+                // Peningkatan keamanan path file
+                $imageName = time() . '-' . Str::random(10) . '.' . $image->getClientOriginalExtension();
                 $image->move(public_path('images/news'), $imageName);
                 $imagePath = 'images/news/' . $imageName;
             }
@@ -292,7 +301,7 @@ class ApiNewsController extends Controller
                 'title'       => $request->title,
                 'categoryId'  => $request->categoryId,
                 'gambar'      => $imagePath,
-                'content'     => $request->contents, // Menggunakan $request->content
+                'contents'    => $request->contents, // ✅ Menggunakan $request->contents
                 'authorId'    => $request->authorId,
                 'views'       => 0, 
                 'linkYoutube' => $request->linkYoutube,
@@ -335,14 +344,15 @@ class ApiNewsController extends Controller
             }
             
             // 3. Validasi input
+            // 💡 PERBAIKAN: Kunci 'content' dan 'contents'
             $validator = Validator::make($request->all(), [
-                'title'      => 'required|string|max:255',
-                'categoryId' => 'nullable|integer|exists:category,id',
-                'gambar'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
-                'content'    => 'required|string', // Kunci 'content'
+                'title'       => 'required|string|max:255',
+                'categoryId'  => 'nullable|integer|exists:category,id',
+                'gambar'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
+                'contents'    => 'required|string', // ✅ Menggunakan contents
                 'linkYoutube' => 'nullable|string',
-                'authorId'   => 'nullable|integer|exists:users,id',
-                'status'     => 'nullable|string|in:draft,published'
+                'authorId'    => 'nullable|integer|exists:users,id',
+                'status'      => 'nullable|string|in:draft,published'
             ]);
 
             if ($validator->fails()) {
@@ -359,7 +369,8 @@ class ApiNewsController extends Controller
                 }
 
                 $image = $request->file('gambar');
-                $imageName = time() . '-' . Str::slug($request->title) . '.' . $image->getClientOriginalExtension();
+                // Peningkatan keamanan path file
+                $imageName = time() . '-' . Str::random(10) . '.' . $image->getClientOriginalExtension();
                 $image->move(public_path('images/news'), $imageName);
                 $imagePath = 'images/news/' . $imageName;
             }
@@ -369,7 +380,7 @@ class ApiNewsController extends Controller
                 'title'       => $request->title,
                 'categoryId'  => $request->categoryId,
                 'gambar'      => $imagePath,
-                'content'     => $request->contents, // Menggunakan $request->content
+                'contents'    => $request->contents, // ✅ Menggunakan $request->contents
                 'authorId'    => $request->authorId ?? $news->authorId,
                 'linkYoutube' => $request->linkYoutube,
                 'status'      => $request->status ?? $news->status,
