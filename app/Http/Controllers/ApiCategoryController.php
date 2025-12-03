@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\News;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +37,7 @@ class ApiCategoryController extends Controller
         
         return null; // Lanjut jika valid
     }
+
     public function showAllCategory(Request $request) // Mengganti nama fungsi agar lebih spesifik
     {
         try {
@@ -57,6 +59,62 @@ class ApiCategoryController extends Controller
                 'message' => 'Successfully fetched all categories',
                 'count' => $categories->count(),
                 'data' => $categories
+            ], 200);
+
+        } catch (Exception $e) {
+            // Log error untuk debugging internal
+            Log::error('Internal Server Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            
+            // Kembalikan respon error (HTTP 500 Internal Server Error)
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function newsInCategory(Request $request, $id) // Menggunakan $id sebagai parameter rute
+    {
+        try {
+            // 1. Cek private key (Diwajibkan)
+            // Asumsi $this->validateAndLogApiKey() tersedia
+            if (method_exists($this, 'validateAndLogApiKey')) {
+                if ($response = $this->validateAndLogApiKey($request)) { 
+                    return $response;
+                }
+            }
+
+            // 2. Cek apakah kategori dengan ID tersebut ada
+            $category = Category::find($id);
+
+            if (!$category) {
+                // Kembalikan respon Kategori tidak ditemukan (HTTP 404 Not Found)
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Category not found with ID: ' . $id,
+                    'count' => 0,
+                    'data' => []
+                ], 404);
+            }
+            
+            // 3. Ambil semua data news yang memiliki categoryId yang sesuai
+            // Menggunakan relasi BelongsTo di Model News: foreign key-nya adalah 'categoryId'
+            // Di sini kita bisa menggunakan Query Builder atau relasi Eloquent
+            $newsList = News::where('categoryId', $id)
+                            ->select('id', 'title', 'contents')
+                            // Opsional: Muat relasi author jika ingin menampilkan nama penulis, 
+                            // asumsikan Model User ada dan relasi 'author' di News sudah didefinisikan.
+                            // ->with('author:id,name') 
+                            ->paginate(5);
+
+            // 4. Kembalikan respon sukses (HTTP 200 OK)
+            return response()->json([
+                'status' => 'success',
+                'message' => "Successfully fetched news for category: {$category->name} (ID: {$id})",
+                'category_name' => $category->name,
+                'count' => $newsList->count(),
+                'data' => $newsList
             ], 200);
 
         } catch (Exception $e) {

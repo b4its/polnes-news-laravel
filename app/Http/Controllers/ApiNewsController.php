@@ -325,6 +325,42 @@ class ApiNewsController extends Controller
     // C. UPDATE - Memerlukan API Key
     // ------------------------------------------------------------------
 
+    public function addViews(int $idNews)
+    {
+        try {
+            // 1. Cari berita
+            // Gunakan findOrFail agar langsung melempar 404 jika tidak ditemukan
+            $news = News::findOrFail($idNews);
+
+            // 2. Tambahkan nilai 'views' sebanyak 1
+            // Metode increment() aman dari kondisi race dan sangat efisien
+            $news->increment('views');
+
+            // 3. Ambil data views yang baru untuk respons
+            $updatedNews = News::find($idNews);
+            $newViews = $updatedNews->views;
+
+            Log::info("Views for News ID {$idNews} incremented. New views: {$newViews}");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Views incremented successfully.',
+                'newsId' => $idNews,
+                'newViews' => $newViews
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Jika berita tidak ditemukan
+            return response()->json(['status' => 'error', 'message' => 'News not found'], 404);
+
+        } catch (Exception $e) {
+            // Error umum lainnya
+            Log::error('Error in addViews: ' . $e->getMessage(), ['idNews' => $idNews]);
+            return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+        }
+    }
+
+
     /**
      * Memperbarui berita di database.
      * Memerlukan API Key.
@@ -393,6 +429,8 @@ class ApiNewsController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
         }
     }
+
+
 
 
     // ------------------------------------------------------------------

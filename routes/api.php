@@ -32,6 +32,7 @@ Route::controller(ApiAuthenticateControllers::class)->group(function () {
 Route::controller(ApiCategoryController::class)->group(function () {
     // READ
     Route::get('/category/get', 'showAllCategory');
+    Route::get('/category/{id}', 'newsInCategory');
 
     // CREATE (Menyimpan data baru)
     Route::post('/category/store', 'store');
@@ -55,6 +56,7 @@ Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     // Write Operations: Memerlukan API Key
     Route::post('/post', 'store');       // POST /api/news (Tambah Berita)
     Route::post('/post/{id}', 'update');  // POST /api/{id} (Update Berita, menggunakan POST untuk file upload)
+    Route::post('/add/views/{id}', 'addViews');  // POST /add/views/{id}
     Route::delete('/delete/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
 });
 
