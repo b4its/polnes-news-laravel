@@ -32,7 +32,7 @@ Route::controller(ApiAuthenticateControllers::class)->group(function () {
 Route::controller(ApiCategoryController::class)->group(function () {
     // READ
     Route::get('/category/get', 'showAllCategory');
-    Route::get('/category/{id}', 'newsInCategory');
+    Route::get('/news/category/get/{id}', 'newsInCategory');
 
     // CREATE (Menyimpan data baru)
     Route::post('/category/store', 'store');
@@ -51,6 +51,10 @@ Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     Route::get('/get/most_view/long', 'mostViewed_long');        // GET /api/news
     Route::get('/get/most_rated/short', 'mostRated_short');        // GET /api/news
     Route::get('/get/most_rated/long', 'mostRated_long');        // GET /api/news
+    
+    Route::get('/get/recent_news/first', 'recentNewsFirst');        // GET /api/news
+    Route::get('/get/most_rated/first', 'mostRatedFirst');        // GET /api/news
+    Route::get('/get/most_view/first', 'mostViewedFirst');        // GET /api/news
     Route::get('/{id}', 'show');     // GET /api/news/{id}
     
     // Write Operations: Memerlukan API Key
@@ -60,20 +64,29 @@ Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     Route::delete('/delete/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
 });
 
+// Grouping semua route terkait Komentar/Rating di bawah prefix 'comment'
 Route::prefix('comment')->controller(ApiCommentController::class)->group(function () {
+    
     /**
-     * POST /api/comment/{newsId}/store
+     * POST /api/comment/store/{newsId}
      * Menambahkan rating/komentar baru ke suatu berita.
      * Membutuhkan: X-Api-Key, userId, rating (di body request).
      */
     Route::post('/store/{newsId}', 'storeComment');
     
     /**
-     * GET /api/comment/{newsId}
+     * PATCH /api/comment/update/{newsId}
+     * Memperbarui rating yang sudah ada oleh user tertentu pada berita tertentu.
+     * Membutuhkan: X-Api-Key, userId, rating baru (di body request).
+     */
+    Route::patch('/update/{newsId}', 'updateComment');
+    
+    /**
+     * GET /api/comment/get/{newsId}
      * Menampilkan semua rating/komentar untuk suatu berita.
      * Membutuhkan: X-Api-Key.
      */
-    Route::get('get/{newsId}', 'getComments');
+    Route::get('/get/{newsId}', 'getComments');
 });
 
 Route::prefix('notification')->controller(ApiNotificationController::class)->group(function () {

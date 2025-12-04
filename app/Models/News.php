@@ -25,6 +25,7 @@ class News extends Model
         'contents',
         'authorId',
         'views',
+        'thumbnail',
         'linkYoutube',
         'status',
     ];

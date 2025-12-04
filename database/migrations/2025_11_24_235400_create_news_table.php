@@ -19,6 +19,7 @@ return new class extends Migration
             $table->text('contents')->nullable();
             $table->foreignId('authorId')->nullable()->constrained('users')->onDelete('cascade');
             $table->integer('views')->nullable();
+            $table->string('thumbnail')->nullable();
             $table->string('linkYoutube')->nullable();
             $table->string('status')->nullable();
             $table->timestamps();
@@ -36,6 +37,7 @@ return new class extends Migration
             $table->id();
             $table->string('title')->nullable();
             $table->foreignId('newsId')->nullable()->constrained('news')->onDelete('cascade');
+            $table->string('jenis')->nullable();
             $table->text('gambar')->nullable();
             $table->timestamps();
         });

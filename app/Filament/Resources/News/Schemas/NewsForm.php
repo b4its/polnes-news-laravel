@@ -28,12 +28,7 @@ class NewsForm
                 )
                 ->searchable(),
 
-
-                RichEditor::make('contents')
-                    ->label('Deskripsi')
-                    ->required()
-                    ->columnSpanFull(), 
-
+                
                 FileUpload::make('gambar')
                     ->disk('public_folder')
                     ->directory(fn ($record) => $record?->id 
@@ -48,8 +43,33 @@ class NewsForm
                     })
                     ->visibility('public')
                     ->preserveFilenames(false) // biar selalu generate nama sesuai fungsi di atas
-                    ->deleteUploadedFileUsing(fn ($file) => Storage::disk('public_folder')->delete($file)),
-            
+                    ->deleteUploadedFileUsing(fn ($file) => Storage::disk('public_folder')->delete($file))
+                    ->columnSpanFull(),
+
+                RichEditor::make('contents')
+                    ->label('Deskripsi')
+                    ->required()
+                    ->columnSpanFull(), 
+
+                FileUpload::make('thumbnail')
+                    ->disk('public_folder')
+                    ->directory(fn ($record) => $record?->id 
+                        ? "media/thumbnail/{$record->id}" 
+                        : "media/thumbnail/temp"
+                    )
+                    ->getUploadedFileNameForStorageUsing(function ($file, $record) {
+                        $ext = $file->getClientOriginalExtension();
+                        $datetime = now()->format('Ymd_His');
+                        $id = $record?->id ?? 'new'; // fallback kalau belum ada id
+                        return "thumbnail_{$datetime}_{$id}.{$ext}";
+                    })
+                    ->visibility('public')
+                    ->preserveFilenames(false) // biar selalu generate nama sesuai fungsi di atas
+                    ->deleteUploadedFileUsing(fn ($file) => Storage::disk('public_folder')->delete($file))
+                    ->columnSpanFull(),
+                TextInput::make('linkYoutube')
+                    ->label('Link Youtube')
+                    ->required(),
                 ]);
     }
 }

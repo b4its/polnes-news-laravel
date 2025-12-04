@@ -55,7 +55,7 @@ class ApiNewsController extends Controller
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('created_at', 'desc')
                         // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
-                        ->paginate(10); 
+                        ->paginate(5); 
 
             return response()->json([
                 'status' => 'success',
@@ -72,6 +72,112 @@ class ApiNewsController extends Controller
         }
     }
     
+        public function recentNewsFirst(Request $request)
+        {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->latest() // Menggantikan orderBy('created_at', 'desc')
+                        ->first();  // Mengambil data pertama (data tunggal) dari hasil yang diurutkan
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news // $news sekarang adalah objek PaginatedData
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+
+    public function mostViewedFirst(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita dengan PAGINASI
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->orderBy('views', 'desc') 
+                        // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->first();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+
+public function mostRatedFirst(Request $request)
+{
+    try {
+        // 1. Cek API Key
+        if ($response = $this->validateAndLogApiKey($request)) {
+            return $response;
+        }
+
+        // 2. Hitung Rata-rata Rating dan Urutkan
+        $news = News::with(['author:id,name', 'category:id,name'])
+            ->leftJoin(
+                DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
+                'news.id', '=', 'ratings.newsId'
+            )
+            ->orderByDesc('ratings.average_rating')
+            ->orderBy('news.created_at', 'desc')
+            ->select('news.*', 'ratings.average_rating')
+            // 💡 PERBAIKAN: Menggunakan first() untuk mendapatkan data tunggal (rekaman pertama)
+            ->first(); 
+            
+        // 3. Menyesuaikan response jika data tidak ditemukan
+        if (!$news) {
+            return response()->json([
+                'status' => 'not found',
+                'message' => 'No news found with ratings.',
+                'data' => null
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            // 💡 Mengganti pesan menjadi 'first most rated news' karena hanya 1 data
+            'message' => 'Successfully fetched the single most rated news.', 
+            'data' => $news
+        ], 200);
+
+    } catch (Exception $e) {
+        // Log Error
+        Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+        
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Internal server error.'
+        ], 500);
+    }
+}
+    
+    
+
     /**
      * Menampilkan berita paling banyak dilihat (pendek/short).
      * TIDAK menggunakan paginasi (mengembalikan Array langsung).
@@ -122,7 +228,7 @@ class ApiNewsController extends Controller
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('views', 'desc') 
                         // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
-                        ->paginate(10); 
+                        ->paginate(5); 
 
             return response()->json([
                 'status' => 'success',
@@ -162,7 +268,7 @@ class ApiNewsController extends Controller
                         ->orderBy('news.created_at', 'desc')
                         ->select('news.*', 'ratings.average_rating')
                         // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
-                        ->paginate(10);
+                        ->paginate(5);
 
             return response()->json([
                 'status' => 'success',

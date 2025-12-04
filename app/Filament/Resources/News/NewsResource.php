@@ -30,6 +30,17 @@ class NewsResource extends Resource
         return NewsTable::configure($table);
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return 'Berita';
+    }
+
+    public static function getNavigationIcon(): string
+    {
+        return 'heroicon-o-newspaper';
+    }
+
+
     public static function getRelations(): array
     {
         return [

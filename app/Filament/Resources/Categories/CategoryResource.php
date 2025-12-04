@@ -30,6 +30,16 @@ class CategoryResource extends Resource
         return CategoriesTable::configure($table);
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return 'Kategori';
+    }
+
+    public static function getNavigationIcon(): string
+    {
+        return 'heroicon-o-tag';
+    }
+
     public static function getRelations(): array
     {
         return [

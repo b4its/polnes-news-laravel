@@ -29,6 +29,7 @@ class Notification extends Model
     protected $fillable = [
         'title',
         'newsId',
+        'jenis',
         'gambar',
     ];
 
