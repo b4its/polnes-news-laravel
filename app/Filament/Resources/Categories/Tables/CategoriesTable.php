@@ -46,6 +46,7 @@ class CategoriesTable
                     ->modalDescription('apakah yakin ingin menghapus data ini?')
                     ->modalSubmitActionLabel('Ya, Hapus'),
             ])
+            ->paginated(5)
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

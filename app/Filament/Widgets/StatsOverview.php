@@ -20,12 +20,12 @@ class StatsOverview extends StatsOverviewWidget
         return [
             Stat::make('Total Kategori', Category::count())
                 ->description('Jumlah seluruh Kategori')
-                ->icon('heroicon-o-users')
+                ->icon('heroicon-o-tag')
                 ->color('primary'),
 
             Stat::make('Total Berita', News::count())
                 ->description('Jumlah Seluruh Berita')
-                ->icon('heroicon-o-rectangle-stack')
+                ->icon('heroicon-o-newspaper')
                 ->color('success'),
         ];
     }
