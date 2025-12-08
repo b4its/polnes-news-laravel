@@ -25,6 +25,7 @@ Route::controller(ApiAuthenticateControllers::class)->group(function () {
     Route::post('/register', 'register');
     Route::post('/login', 'login');
     Route::get('/users/get', 'showAll');
+    Route::get('/users/update/{id}', 'update');
     Route::get('/users/{id}/role_editor', 'updateRoleToEditor');
 });
 
@@ -39,6 +40,7 @@ Route::controller(ApiCategoryController::class)->group(function () {
 
     // UPDATE (Memperbarui data berdasarkan ID)
     Route::put('/category/{id}/update', 'update');
+    Route::delete('/category/delete/{id}', 'destroy');
     // Anda juga bisa menggunakan PATCH jika ingin update parsial
     // Route::patch('/category/{id}/update', 'update');
 });
@@ -47,6 +49,9 @@ Route::controller(ApiCategoryController::class)->group(function () {
 Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     // Read: Akses publik (tidak perlu API Key)
     Route::get('/', 'index');        // GET /api/news
+    Route::get('/get/published', 'newsPublished');        // GET /api/news
+    Route::get('/get/draft', 'newsDraft');        // GET /api/news
+    Route::get('/get/review', 'newsReview');        // GET /api/news
     Route::get('/get/most_view/short', 'mostViewed_short');        // GET /api/news
     Route::get('/get/most_view/long', 'mostViewed_long');        // GET /api/news
     Route::get('/get/most_rated/short', 'mostRated_short');        // GET /api/news
@@ -62,6 +67,13 @@ Route::prefix('news')->controller(ApiNewsController::class)->group(function () {
     Route::post('/post/{id}', 'update');  // POST /api/{id} (Update Berita, menggunakan POST untuk file upload)
     Route::post('/add/views/{id}', 'addViews');  // POST /add/views/{id}
     Route::delete('/delete/{id}', 'destroy'); // DELETE /api/news/{id} (Hapus Berita)
+    
+    // admin
+    Route::get('/get/dashboardAdmin', 'dashboardCountAdmin');        // GET /api/news
+    Route::post('/admin/post', 'storeAdmin');       // POST /api/news (Tambah Berita)
+    Route::post('/admin/update/status/published/{id}', 'updatePublishStatus');  // POST /add/views/{id}
+    Route::post('/admin/update/status/draft/{id}', 'updateDraftStatus');  // POST /add/views/{id}
+    Route::post('/admin/update/status/pending_review/{id}', 'updateReviewStatus');  // POST /add/views/{id}
 });
 
 // Grouping semua route terkait Komentar/Rating di bawah prefix 'comment'

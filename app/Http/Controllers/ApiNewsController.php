@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\News;
 use App\Http\Controllers\Controller;
+use App\Models\Category;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -71,7 +73,140 @@ class ApiNewsController extends Controller
             ], 500);
         }
     }
-    
+
+public function dashboardCountAdmin(Request $request)
+{
+    try {
+        // 1. Opsional: Cek API Key (disesuaikan dengan logic di fungsi show)
+        // Jika Anda ingin menerapkan validasi API key di sini juga:
+        if ($response = $this->validateAndLogApiKey($request)) {
+            return $response;
+        }
+
+        // 2. Hitung total record dengan status "PENDING_REVIEW"
+        // Menggunakan metode 'where' untuk filter dan 'count' untuk menghitung.
+        $totalPublished = News::where('status', 'PUBLISHED')->count();
+        $totalRejected = News::where('status', 'REJECTED')->count();
+        $totalReview = News::where('status', 'PENDING_REVIEW')->count();
+        $totalViews = News::sum('views');
+        $totalReaders = User::where('role', 'USER')->count();
+        $totalCategories = Category::count();
+
+        // 3. Kembalikan respons JSON
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Successfully fetched count of pending review news',
+            'data' => [
+                'total_pending_review' => $totalReview,
+                'total_published' => $totalPublished,
+                'total_rejected' => $totalRejected,
+                'total_views' => $totalViews,
+                'total_readers' => $totalReaders,
+                'total_categories' => $totalCategories
+            ]
+        ], 200);
+
+    } catch (Exception $e) {
+        Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+        return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+    }
+}
+
+
+
+    public function newsPublished(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->where('status', 'PUBLISHED') 
+                        ->orderBy('created_at', 'desc')
+                        // 💡 Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(5);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news // $news sekarang adalah objek PaginatedData
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+
+
+    public function newsDraft(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->where('status', 'DRAFT') 
+                        ->orderBy('created_at', 'desc')
+                        // 💡 Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(5);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news // $news sekarang adalah objek PaginatedData
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+
+    public function newsReview(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
+            $news = News::with(['author:id,name', 'category:id,name'])
+                        ->where('status', 'PENDING_REVIEW') 
+                        ->orderBy('created_at', 'desc')
+                        // 💡 Menggunakan paginate() untuk mengembalikan objek PaginatedData
+                        ->paginate(5);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully fetched news list',
+                'data' => $news // $news sekarang adalah objek PaginatedData
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Internal server error.'
+            ], 500);
+        }
+    }
+
+
+
         public function recentNewsFirst(Request $request)
         {
         try {
@@ -82,6 +217,7 @@ class ApiNewsController extends Controller
 
             // 2. Ambil data berita dengan PAGINASI (Default 10 item per halaman)
             $news = News::with(['author:id,name', 'category:id,name'])
+                        ->where('status', 'PUBLISHED')
                         ->latest() // Menggantikan orderBy('created_at', 'desc')
                         ->first();  // Mengambil data pertama (data tunggal) dari hasil yang diurutkan
 
@@ -110,6 +246,7 @@ class ApiNewsController extends Controller
 
             // 2. Ambil data berita dengan PAGINASI
             $news = News::with(['author:id,name', 'category:id,name'])
+                        ->where('status', 'PUBLISHED')
                         ->orderBy('views', 'desc') 
                         // 💡 PERBAIKAN: Menggunakan paginate() untuk mengembalikan objek PaginatedData
                         ->first();
@@ -143,6 +280,7 @@ public function mostRatedFirst(Request $request)
                 DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
                 'news.id', '=', 'ratings.newsId'
             )
+            ->where('status', 'PUBLISHED')
             ->orderByDesc('ratings.average_rating')
             ->orderBy('news.created_at', 'desc')
             ->select('news.*', 'ratings.average_rating')
@@ -193,8 +331,8 @@ public function mostRatedFirst(Request $request)
             // 2. Ambil data berita
             $news = News::with(['author:id,name', 'category:id,name'])
                         ->orderBy('views', 'desc')
-                        ->take(5) 
-                        ->get(); 
+                        ->where('status', 'PUBLISHED')
+                        ->paginate(5); 
 
             // 💡 CATATAN: Response ini akan mengembalikan "data": [Array]
             return response()->json([
@@ -302,11 +440,11 @@ public function mostRatedFirst(Request $request)
                             DB::raw('(SELECT newsId, AVG(rating) as average_rating FROM comment GROUP BY newsId) as ratings'),
                             'news.id', '=', 'ratings.newsId'
                         )
+                        ->where('status', 'PUBLISHED')
                         ->orderByDesc('ratings.average_rating')
                         ->orderBy('news.created_at', 'desc')
                         ->select('news.*', 'ratings.average_rating')
-                        ->take(5)
-                        ->get();
+                        ->paginate(5);
 
             // 💡 CATATAN: Response ini akan mengembalikan "data": [Array]
             return response()->json([
@@ -361,6 +499,7 @@ public function mostRatedFirst(Request $request)
     }
 
 
+
     // ------------------------------------------------------------------
     // B. CREATE (Store) - Memerlukan API Key
     // ------------------------------------------------------------------
@@ -369,7 +508,7 @@ public function mostRatedFirst(Request $request)
      * Menyimpan berita baru ke database.
      * Memerlukan API Key.
      */
-    public function store(Request $request)
+public function store(Request $request)
     {
         try {
             // 1. Cek API Key
@@ -378,28 +517,41 @@ public function mostRatedFirst(Request $request)
             }
 
             // 2. Validasi input
-            // 💡 PERBAIKAN: Kunci 'content' dan 'contents'
             $validator = Validator::make($request->all(), [
                 'title'       => 'required|string|max:255',
                 'categoryId'  => 'nullable|integer|exists:category,id',
                 'gambar'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
-                'contents'    => 'required|string', // ✅ Menggunakan contents
+                'thumbnail'   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // <--- TAMBAHKAN VALIDASI INI
+                'contents'    => 'required|string',
                 'linkYoutube' => 'nullable|string',
                 'authorId'    => 'required|integer|exists:users,id',
-                'status'      => 'nullable|string|in:draft,published' 
+                'status'      => 'nullable|string|in:DRAFT,PUBLISHED,REJECTED' 
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['status' => 'error', 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
             }
 
+            // --- PROSES GAMBAR UTAMA ---
             $imagePath = null;
             if ($request->hasFile('gambar')) {
                 $image = $request->file('gambar');
-                // Peningkatan keamanan path file
                 $imageName = time() . '-' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-                $image->move(public_path('images/news'), $imageName);
-                $imagePath = 'images/news/' . $imageName;
+                // Simpan ke folder yang sama dengan logika Anda sebelumnya
+                $image->move(public_path('media/gambar/temp'), $imageName);
+                $imagePath = 'media/gambar/temp/' . $imageName;
+            }
+
+            // --- PROSES THUMBNAIL (BARU) ---
+            $thumbnailPath = null;
+            if ($request->hasFile('thumbnail')) {
+                $thumb = $request->file('thumbnail');
+                // Tambahkan prefix 'thumb-' agar nama file unik
+                $thumbName = time() . '-thumb-' . Str::random(10) . '.' . $thumb->getClientOriginalExtension();
+                
+                // Simpan ke folder yang sama (sesuaikan folder jika Anda ingin beda)
+                $thumb->move(public_path('media/gambar/temp'), $thumbName);
+                $thumbnailPath = 'media/gambar/temp/' . $thumbName;
             }
 
             // 3. Buat berita baru
@@ -407,11 +559,86 @@ public function mostRatedFirst(Request $request)
                 'title'       => $request->title,
                 'categoryId'  => $request->categoryId,
                 'gambar'      => $imagePath,
-                'contents'    => $request->contents, // ✅ Menggunakan $request->contents
+                'thumbnail'   => $thumbnailPath, // <--- MASUKKAN KE DATABASE
+                'contents'    => $request->contents,
                 'authorId'    => $request->authorId,
-                'views'       => 0, 
+                'views'       => 1, 
                 'linkYoutube' => $request->linkYoutube,
-                'status'      => $request->status ?? 'draft',
+                'status'      => $request->status ?? 'DRAFT',
+            ]);
+
+            return response()->json(['status' => 'success', 'message' => 'News created successfully', 'data' => $news], 201);
+
+        } catch (QueryException $e) { 
+            Log::error('Database Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Database error: Could not create news.'], 500);
+
+        } catch (Exception $e) {
+            Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+        }
+    }
+
+
+
+    
+public function storeAdmin(Request $request)
+    {
+        try {
+            // 1. Cek API Key
+            if ($response = $this->validateAndLogApiKey($request)) {
+                return $response;
+            }
+
+            // 2. Validasi input
+            $validator = Validator::make($request->all(), [
+                'title'       => 'required|string|max:255',
+                'categoryId'  => 'nullable|integer|exists:category,id',
+                'gambar'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
+                'thumbnail'   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // <--- TAMBAHKAN VALIDASI INI
+                'contents'    => 'required|string',
+                'linkYoutube' => 'nullable|string',
+                'authorId'    => 'required|integer|exists:users,id',
+                'status'      => 'nullable|string|in:DRAFT,PUBLISHED,REJECTED' 
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['status' => 'error', 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+            }
+
+            // --- PROSES GAMBAR UTAMA ---
+            $imagePath = null;
+            if ($request->hasFile('gambar')) {
+                $image = $request->file('gambar');
+                $imageName = time() . '-' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+                // Simpan ke folder yang sama dengan logika Anda sebelumnya
+                $image->move(public_path('media/gambar/temp'), $imageName);
+                $imagePath = 'media/gambar/temp/' . $imageName;
+            }
+
+            // --- PROSES THUMBNAIL (BARU) ---
+            $thumbnailPath = null;
+            if ($request->hasFile('thumbnail')) {
+                $thumb = $request->file('thumbnail');
+                // Tambahkan prefix 'thumb-' agar nama file unik
+                $thumbName = time() . '-thumb-' . Str::random(10) . '.' . $thumb->getClientOriginalExtension();
+                
+                // Simpan ke folder yang sama (sesuaikan folder jika Anda ingin beda)
+                $thumb->move(public_path('media/gambar/temp'), $thumbName);
+                $thumbnailPath = 'media/gambar/temp/' . $thumbName;
+            }
+
+            // 3. Buat berita baru
+            $news = News::create([
+                'title'       => $request->title,
+                'categoryId'  => $request->categoryId,
+                'gambar'      => $imagePath,
+                'thumbnail'   => $thumbnailPath, // <--- MASUKKAN KE DATABASE
+                'contents'    => $request->contents,
+                'authorId'    => $request->authorId,
+                'views'       => 1, 
+                'linkYoutube' => $request->linkYoutube,
+                'status'      => $request->status ?? 'PUBLISHED',
             ]);
 
             return response()->json(['status' => 'success', 'message' => 'News created successfully', 'data' => $news], 201);
@@ -466,12 +693,108 @@ public function mostRatedFirst(Request $request)
         }
     }
 
+public function updatePublishStatus(int $idNews)
+    {
+        try {
+            // 1. Cari berita
+            // Gunakan findOrFail agar langsung melempar 404 jika tidak ditemukan
+            $news = News::findOrFail($idNews);
+
+            // 2. Perbarui nilai kolom 'status' menjadi 'PUBLISHED'
+            $news->status = 'PUBLISHED';
+            $news->save(); // Simpan perubahan ke database
+
+            Log::info("News ID {$idNews} status updated to PUBLISHED.");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'News successfully published.',
+                'newsId' => $idNews,
+                'newStatus' => 'PUBLISHED'
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Jika berita tidak ditemukan
+            return response()->json(['status' => 'error', 'message' => 'News not found'], 404);
+
+        } catch (Exception $e) {
+            // Error umum lainnya
+            Log::error('Error in publishNews: ' . $e->getMessage(), ['idNews' => $idNews]);
+            return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+        }
+    }
+
+public function updateDraftStatus(int $idNews)
+    {
+        try {
+            // 1. Cari berita
+            // Gunakan findOrFail agar langsung melempar 404 jika tidak ditemukan
+            $news = News::findOrFail($idNews);
+
+            // 2. Perbarui nilai kolom 'status' menjadi 'DRAFT'
+            $news->status = 'DRAFT';
+            $news->save(); // Simpan perubahan ke database
+
+            Log::info("News ID {$idNews} status updated to DRAFT.");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'News successfully draft.',
+                'newsId' => $idNews,
+                'newStatus' => 'DRAFT'
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Jika berita tidak ditemukan
+            return response()->json(['status' => 'error', 'message' => 'News not found'], 404);
+
+        } catch (Exception $e) {
+            // Error umum lainnya
+            Log::error('Error in publishNews: ' . $e->getMessage(), ['idNews' => $idNews]);
+            return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+        }
+    }
+
+public function updateReviewStatus(int $idNews)
+    {
+        try {
+            // 1. Cari berita
+            // Gunakan findOrFail agar langsung melempar 404 jika tidak ditemukan
+            $news = News::findOrFail($idNews);
+
+            // 2. Perbarui nilai kolom 'status' menjadi 'PENDING_REVIEW'
+            $news->status = 'PENDING_REVIEW';
+            $news->save(); // Simpan perubahan ke database
+
+            Log::info("News ID {$idNews} status updated to Pending Review.");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'News successfully Pending Review.',
+                'newsId' => $idNews,
+                'newStatus' => 'PENDING_REVIEW'
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Jika berita tidak ditemukan
+            return response()->json(['status' => 'error', 'message' => 'News not found'], 404);
+
+        } catch (Exception $e) {
+            // Error umum lainnya
+            Log::error('Error in publishNews: ' . $e->getMessage(), ['idNews' => $idNews]);
+            return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
+        }
+    }
+
+
+
+
 
     /**
      * Memperbarui berita di database.
      * Memerlukan API Key.
      */
-    public function update(Request $request, $id)
+public function update(Request $request, $id)
     {
         try {
             // 1. Cek API Key
@@ -484,26 +807,41 @@ public function mostRatedFirst(Request $request)
             if (!$news) {
                 return response()->json(['status' => 'error', 'message' => 'News not found'], 404);
             }
-            
+
             // 3. Validasi input
-            // 💡 PERBAIKAN: Kunci 'content' dan 'contents'
             $validator = Validator::make($request->all(), [
                 'title'       => 'required|string|max:255',
                 'categoryId'  => 'nullable|integer|exists:category,id',
                 'gambar'      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
-                'contents'    => 'required|string', // ✅ Menggunakan contents
+                'thumbnail'   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', 
+                'contents'    => 'required|string',
                 'linkYoutube' => 'nullable|string',
                 'authorId'    => 'nullable|integer|exists:users,id',
-                'status'      => 'nullable|string|in:draft,published'
+                'status'      => 'nullable|string|in:DRAFT,published' // Pastikan ini konsisten lowercase/uppercase di DB
             ]);
 
             if ($validator->fails()) {
-                return response()->json(['status' => 'error', 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'Validation failed', 
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
-            $imagePath = $news->gambar; 
-            
-            // 4. Proses update gambar (jika ada file baru)
+            // Data yang akan diupdate
+            $dataToUpdate = [
+                'title'       => $request->title,
+                'categoryId'  => $request->categoryId,
+                'contents'    => $request->contents,
+                'linkYoutube' => $request->linkYoutube,
+                'status'      => $request->status ?? $news->status,
+            ];
+
+            if ($request->has('authorId')) {
+                $dataToUpdate['authorId'] = $request->authorId;
+            }
+
+            // 4. Proses Update Gambar UTAMA
             if ($request->hasFile('gambar')) {
                 // Hapus gambar lama
                 if ($news->gambar && File::exists(public_path($news->gambar))) {
@@ -511,32 +849,51 @@ public function mostRatedFirst(Request $request)
                 }
 
                 $image = $request->file('gambar');
-                // Peningkatan keamanan path file
                 $imageName = time() . '-' . Str::random(10) . '.' . $image->getClientOriginalExtension();
                 $image->move(public_path('images/news'), $imageName);
-                $imagePath = 'images/news/' . $imageName;
+                
+                $dataToUpdate['gambar'] = 'images/news/' . $imageName;
             }
 
-            // 5. Perbarui data berita
-            $news->update([
-                'title'       => $request->title,
-                'categoryId'  => $request->categoryId,
-                'gambar'      => $imagePath,
-                'contents'    => $request->contents, // ✅ Menggunakan $request->contents
-                'authorId'    => $request->authorId ?? $news->authorId,
-                'linkYoutube' => $request->linkYoutube,
-                'status'      => $request->status ?? $news->status,
-            ]);
+            // ============================================================
+            // 5. Proses Update THUMBNAIL (INI YANG KURANG SEBELUMNYA)
+            // ============================================================
+            if ($request->hasFile('thumbnail')) { // <--- TAMBAHKAN BLOK INI
+                // Hapus thumbnail lama jika ada
+                if ($news->thumbnail && File::exists(public_path($news->thumbnail))) {
+                    File::delete(public_path($news->thumbnail));
+                }
 
-            return response()->json(['status' => 'success', 'message' => 'News updated successfully', 'data' => $news], 200);
+                $thumb = $request->file('thumbnail');
+                // Beri nama unik, misal tambahkan prefix 'thumb-'
+                $thumbName = time() . '-thumb-' . Str::random(10) . '.' . $thumb->getClientOriginalExtension();
+                
+                // Simpan. Bisa di folder sama atau beda. Contoh di sini folder sama 'images/news'
+                $thumb->move(public_path('images/news'), $thumbName);
+                
+                // Masukkan ke array update
+                $dataToUpdate['thumbnail'] = 'images/news/' . $thumbName;
+            }
+            // ============================================================
+
+            // 6. Eksekusi Update
+            $news->update($dataToUpdate);
+
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'News updated successfully', 
+                'data' => $news
+            ], 200);
+
+        } catch (QueryException $e) {
+            Log::error('Database Error in ' . __METHOD__ . ': ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Database error during update.'], 500);
 
         } catch (Exception $e) {
             Log::error('General Error in ' . __METHOD__ . ': ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Internal server error.'], 500);
         }
     }
-
-
 
 
     // ------------------------------------------------------------------

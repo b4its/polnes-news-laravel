@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\News;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 class ApiAuthenticateControllers extends Controller
 {
@@ -247,4 +249,80 @@ class ApiAuthenticateControllers extends Controller
             ], 500);
         }
     }
+
+
+    
+    /**
+     * Handle update user data (Name, Email, Password, Role).
+     */
+public function update(Request $request, $id)
+{
+    // 1. Cek API Key sebaiknya via Middleware, tapi jika harus di sini:
+    if ($response = $this->validateAndLogApiKey($request)) {
+        return $response;
+    }
+
+    $user = User::find($id);
+
+    if (!$user) {
+        return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+    }
+
+    // 2. Validasi (Gunakan 'nullable' sebagai ganti 'sometimes' untuk kejelasan modern)
+    $validated = $request->validate([
+        'name'     => 'nullable|string|max:255',
+        'email'    => 'nullable|email|unique:users,email,' . $user->id,
+        'password' => 'nullable|string|min:6',
+        'role'     => 'nullable|string|in:USER,ADMIN,EDITOR', // Pastikan ada whitelist role
+    ]);
+
+    DB::beginTransaction(); // 3. Gunakan Transaction untuk data yang saling berelasi
+    try {
+        // 4. Handle Password Hashing (hanya jika ada)
+        if (isset($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        }
+
+        // 5. Handle Side Effect Role Change
+        // Perbaikan Logic: Apakah maksudnya jika diganti JADI User biasa, berita jadi draft?
+        // Asumsi kode lama: Jika role berubah dan bukan USER (misal jadi admin?), draft berita.
+        // Silakan sesuaikan logic if-nya sesuai kebutuhan bisnis.
+        if ($request->has('role') && $request->role !== $user->role) {
+             // Contoh logika: Jika didemosi ke USER, arsipkan berita
+             if ($request->role === 'USER') { 
+                $newsUpdatedCount = News::where('authorId', $user->id)->update(['status' => 'DRAFT']);
+                Log::info("User {$user->id} demoted to USER. {$newsUpdatedCount} news set to DRAFT.");
+             }
+        }
+
+        // 6. Update user secara otomatis dengan data yang sudah divalidasi
+        // fill() hanya akan mengisi field yang ada di array $validated
+        $user->fill($validated);
+        
+        if ($user->isDirty()) { // Cek apakah ada perubahan sebelum save
+            $user->save();
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'User updated successfully',
+            'data'    => $user->refresh() // Refresh untuk mendapatkan data terbaru (termasuk updated_at)
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error("Update User Error (ID: $id): " . $e->getMessage());
+        
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Internal server error.'
+        ], 500);
+    }
+}
+
+
+
+    
 }
